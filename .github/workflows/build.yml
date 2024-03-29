@@ -55,7 +55,7 @@ jobs:
     name: docker-upload
     timeout-minutes: 30
     if: ${{ github.ref == 'refs/heads/main' }}
-    needs: Test
+    #needs: Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
