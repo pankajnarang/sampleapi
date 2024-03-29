@@ -80,6 +80,7 @@ jobs:
           file: ./Dockerfile
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/sampleapi:stable-${{ github.sha }},${{ secrets.DOCKER_HUB_USERNAME }}/sampleapi:latest
           no-cache: true
+          platforms: linux/arm64/v8
           push: true
 
       - name: Notify slack
