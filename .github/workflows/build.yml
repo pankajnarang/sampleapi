@@ -3,13 +3,13 @@ name: build_ci
 on:
   push:
     paths:
-      - ./**
+      - '**'
       - .github/workflows/build.yml
     branches:
       - main
   pull_request:
     paths:
-      - ./**
+      - '**'
       - .github/workflows/build.yml
     types: [opened, synchronize]
     branches:
