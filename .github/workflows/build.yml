@@ -1,0 +1,97 @@
+name: build_ci
+
+on:
+  push:
+    paths:
+      - ./**
+      - .github/workflows/build.yml
+    branches:
+      - main
+  pull_request:
+    paths:
+      - ./**
+      - .github/workflows/build.yml
+    types: [opened, synchronize]
+    branches:
+      - main
+
+defaults:
+  run:
+    shell: bash
+    working-directory: ./
+
+jobs:
+  Test:
+    name: test
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin' # See 'Supported distributions' for available options
+          java-version: '17'
+ 
+      - name: Notify slack
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.CI_FAILURE }}
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          fields: workflow,commit,pullRequest,repo,ref,author,took
+          custom_payload: |
+            {
+              attachments: [{
+                color: 'danger',
+                text: `${process.env.AS_WORKFLOW} - click to investigate\n Test ${{ job.status }}\n Test failed on PR (${process.env.AS_PULL_REQUEST}), commit (${process.env.AS_COMMIT}) on repo ${process.env.AS_REPO} by ${process.env.AS_AUTHOR}\n please investigate :pray:`
+
+  docker-upload:
+    name: docker-upload
+    timeout-minutes: 30
+    if: ${{ github.ref == 'refs/heads/main' }}
+    needs: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Login to docker hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and Push Image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./
+          file: ./Dockerfile
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/sampleapi:stable-${{ github.sha }},${{ secrets.DOCKER_HUB_USERNAME }}/sampleapi:latest
+          no-cache: true
+          push: true
+
+      - name: Notify slack
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.CI_FAILURE }}
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          fields: workflow,commit,repo,ref,author,took
+          custom_payload: |
+            {
+              attachments: [{
+                color: 'danger',
+                text: `${process.env.AS_WORKFLOW} - click to investigate\n Build ${{ job.status }}\n Docker build upload Failed on commit (${process.env.AS_COMMIT}) on repo ${process.env.AS_REPO} by ${process.env.AS_AUTHOR}\n please investigate :pray:`
+              }]
+            }
+
